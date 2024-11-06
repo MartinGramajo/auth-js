@@ -135,16 +135,67 @@ export async function POST(request: Request) {
   });
 }
 ```
-5. Probar que funciona: para ello vamos a bajar el proyecto y volver a levantarlo para que tome todas las nuevas referencias y nos iremos a la siguiente ruta: http://localhost:3000/api/auth/signin 
-Si todo funciona correctamente tendríamos que ver lo siguiente: 
+
+5. Probar que funciona: para ello vamos a bajar el proyecto y volver a levantarlo para que tome todas las nuevas referencias y nos iremos a la siguiente ruta: http://localhost:3000/api/auth/signin
+   Si todo funciona correctamente tendríamos que ver lo siguiente:
 
 ![Configuración funciona correctamente](image.png)
 
-NOTA: si tocamos el ```Sign in with Github``` nos tira error porque es lo que vamos a configurar. Por nos faltan nuestro clientID Y clientSecret.
+NOTA: si tocamos el `Sign in with Github` nos tira error porque es lo que vamos a configurar. Por nos faltan nuestro clientID Y clientSecret.
 
-6. Configuración de variables de entorno NEXTAUTH_SECRET="This is an example" 
- 
- La cual tiene que estar generada de la siguiente forma ```$ openssl rand -base64 32``` 
- o con el siguiente [Link para generar el codigo](https://generate-secret.vercel.app/32)
+6. Configuración de variables de entorno NEXTAUTH_SECRET="This is an example"
 
-NOTA: el código generado es siempre único. El codigo generado es el que vamos a reemplazar en la variable de entorno.
+La cual tiene que estar generada de la siguiente forma `$ openssl rand -base64 32`
+o con el siguiente [Link para generar el codigo](https://generate-secret.vercel.app/32)
+
+NOTA: el código generado es siempre único. El código generado es el que vamos a reemplazar en la variable de entorno.
+
+## Github Provider - Configurar Client ID y Client Secret
+
+[Documentación para Auth.js - Providers](https://next-auth.js.org/providers/)
+
+Para configurar necesitamos por un lado `el identificador de nuestra app` y `una llave secreta` que autoriza al backend poderse autenticar con esa aplicación.
+
+```js
+// identificador de la aplicación.
+// Lo puede ver el usuario final.
+// Esto viaja hacia el cliente.
+
+GITHUB_ID=
+
+// Llave secreta de la aplicación.
+// No Lo puede ver el usuario final.
+// Esto nunca sale de su servidor.
+
+GITHUB_SECRET=
+```
+
+1. Como vamos a trabajar con las credenciales de github, nos iremos a [Github](https://github.com/settings/developers)
+
+2. Abrimos nuestra cuenta, nos dirigimos a perfil/Settings/Developers Settings
+
+3. En Developers Settings vamos a crear una => `OAUTH APPS`
+   ![github](image-1.png)
+
+4. Creamos uno nuevo llenando el siguiente formulario
+   ![Form - OAUTH APPS](image-3.png)
+
+NOTA: EL MAS IMPORTANTE DE LOS CAMPOS ES EL DE `Authorization callback URL`
+Una vez que sucede la autenticación a donde lo queremos redireccionar, en nuestro caso, tenemos que editarlo como se muestra en la imagen: http://localhost:3000/api/auth/callback/:provider
+
+Ademas es importante porque cuando tengamos nuestra app en production esa url va a cambiar.
+
+> [NOTA]
+>
+> De esta misma forma haremos con todos los providers que queremos agregar a nuestra aplicación. Por ejemplo: google, Facebook, Spotify etc.
+
+5. Una vez registrado el formulario, nos genera el `Client ID ` y `Client secrets` los cuales vamos a utilizar en nuestras variables de entorno.
+
+6. Configuradas las variables de entornos le damos al botón de ```Update application```.
+![button](image-4.png)
+
+7. Probamos las configuraciones, si todo sale correcto al darle al botón de login de github tendríamos que ver lo siguiente: 
+
+![login](image-5.png)
+
+NOTA: si todo sale exitosamente, nos mandan a nuestro dashboard.
