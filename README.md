@@ -191,11 +191,106 @@ Ademas es importante porque cuando tengamos nuestra app en production esa url va
 
 5. Una vez registrado el formulario, nos genera el `Client ID ` y `Client secrets` los cuales vamos a utilizar en nuestras variables de entorno.
 
-6. Configuradas las variables de entornos le damos al botón de ```Update application```.
-![button](image-4.png)
+6. Configuradas las variables de entornos le damos al botón de `Update application`.
+   ![button](image-4.png)
 
-7. Probamos las configuraciones, si todo sale correcto al darle al botón de login de github tendríamos que ver lo siguiente: 
+7. Probamos las configuraciones, si todo sale correcto al darle al botón de login de github tendríamos que ver lo siguiente:
 
 ![login](image-5.png)
 
 NOTA: si todo sale exitosamente, nos mandan a nuestro dashboard.
+
+## Información del usuario - Server Side
+
+Tenemos 2 formas de saber cual es el usuario conectado:
+
+- Desde el lado del servidor, se la utiliza para hacer la protección de ruta.
+
+- Desde el lado del cliente, esto es mediante una petición de js saber cual es el usuario que esta conectado.
+
+1. DESDE EL LADO DEL SERVIDOR: Vamos a trabajar sobre page.ts de la carpeta Dashboard, esto es para hacer una protección granular
+
+```js
+import WidgetItem from "@/components/WidgetItem";
+
+export const metadata = {
+  title: "Dashboard main",
+  description: "Dashboard main",
+};
+
+export default function DashboardPage() {
+  return (
+    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
+      <WidgetItem title="Usuario conectado Server Side"></WidgetItem>
+    </div>
+  );
+}
+```
+
+> [IMPORTANT]
+>
+> Si utilizamos lo que aprendimos en lugar de page.ts, lo utilizamos en layout.ts nos va a proteger todas las rutas comprendidas dentro de la carpeta Dashboard, es decir, nos protege: cart, cookies, products, rest-todos y server-todos.
+
+2. Para tomar la información del usuario vamos a utilizar la función `getServerSession()` a la cual le pasaremos el `authOptions`
+
+```js
+import WidgetItem from "@/components/WidgetItem";
+import { getServerSession } from "next-auth";
+import { authOptions } from "../api/auth/[...nextauth]/route";
+
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
+
+
+  return ();
+}
+
+
+```
+
+3. Agregamos la validation de la ruta
+
+```js
+export default async function DashboardPage() {
+
+
+  const session = await getServerSession(authOptions);
+
+  // validation de ruta
+
+  if(!session){
+    redirect('/api/auth/signin')
+  }
+
+  return ()
+
+```
+
+4. Por ultimo tomamos los datos del usuario del `session.user`
+   Nota: esto debe ser pasado por JSON.stringify().
+
+```js
+  return (
+    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
+      <WidgetItem  title="Usuario conectado Server Side">
+        {
+
+          JSON.stringify( session.user)
+        }
+      </WidgetItem>
+    </div>
+  );
+}
+```
+
+5. Le agregamos estilos
+
+```js
+<WidgetItem title="Usuario conectado Server Side">
+  <div className=" flex flex-col">
+    <span>{session.user?.name}</span>
+    <span>{session.user?.image}</span>
+    <span>{session.user?.email}</span>
+  </div>
+</WidgetItem>
+```
