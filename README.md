@@ -294,3 +294,6 @@ export default async function DashboardPage() {
   </div>
 </WidgetItem>
 ```
+
+## Tarea: Mostrar información del usuario
+

@@ -4,6 +4,8 @@ import React from "react";
 import SidebarItem from "./SidebarItem";
 import {  IoBasketOutline, IoCalendarOutline, IoCheckboxOutline, IoCodeWorkingOutline, IoListOutline } from "react-icons/io5";
 import { CiLogout } from "react-icons/ci";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const menuItems = [
   {
@@ -33,7 +35,19 @@ const menuItems = [
   },
 ];
 
-const Sidebar = () => {
+const Sidebar = async () => {
+
+  // tomamos la info del usuario 
+  const session = await getServerSession(authOptions);
+
+  const userName = session?.user?.name ?? 'no name';
+  const avatarUrl = (session?.user?.image )
+  ? session?.user?.image
+  : 'https://res.cloudinary.com/dtbfspso5/image/upload/v1699289203/312014016_851542552876625_5393500657488779832_n_nomgxm.jpg'
+
+  // TODO: const userRole : session?.user?.name ?? 'no name';
+
+
   return (
     <aside className="ml-[-100%] fixed z-10 top-0 pb-3 px-6 w-full flex flex-col justify-between h-screen border-r bg-white transition duration-300 md:w-4/12 lg:ml-0 lg:w-[25%] xl:w-[20%] 2xl:w-[15%]">
       <div>
@@ -49,14 +63,14 @@ const Sidebar = () => {
         </div>
         <div className="mt-8 text-center">
           <Image
-            src="https://res.cloudinary.com/dtbfspso5/image/upload/v1699289203/312014016_851542552876625_5393500657488779832_n_nomgxm.jpg"
+            src={avatarUrl}
             width={150}
             height={150}
             className="w-10 h-10 m-auto rounded-full object-cover lg:w-28 lg:h-28"
             alt="perfil"
           />
           <h5 className="hidden mt-4 text-xl font-semibold text-gray-600 lg:block">
-            Luana J. Watts
+            {userName}
           </h5>
           <span className="hidden text-gray-400 lg:block">Admin</span>
         </div>
