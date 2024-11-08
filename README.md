@@ -413,6 +413,135 @@ export default function RootLayout({
   );
 }
 ```
+
 > [IMPORTANT]
 >
-> El hecho de que este envuelto toda nuestra aplicación con el authProvider no significa que transforma toda nuestra app en generada del lado del cliente, simplemente lo vemos como un contexto quedando como un híbrido. 
+> El hecho de que este envuelto toda nuestra aplicación con el authProvider no significa que transforma toda nuestra app en generada del lado del cliente, simplemente lo vemos como un contexto quedando como un híbrido.
+
+## Google Provider
+
+[Documentación de Google Provider](https://next-auth.js.org/providers/google)
+
+[Documentación para tener las credenciales de Google](https://console.cloud.google.com/welcome/new?pli=1)
+
+1. Agregamos un nuevos proveedor de autenticación, en este caso seria para google. Vamos a trabajar sobre el siguiente archivo en la ruta => SRC/API/AUTH/[...NEXTAUTH]/ROUTE.TS
+
+2. En el archivo route.ts agregamos el import del nuevo provider
+
+```js
+import GoogleProvider from "next-auth/providers/google";
+```
+
+3. Dependiendo del orden en el array, aparecen los providers en la UI => en este caso aparece primero el de google y abajo el de github, pero podemos cambiarlo de lugar dependiendo de nuestras necesidades
+
+```js
+// creamos esta const para definir nuestros providers
+// ademas los creamos de esta forma para poder utilizar la referencia (authOptions) en otros lugares
+export const authOptions: NextAuthOptions = {
+  // Configure one or more authentication providers
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    GithubProvider({
+      clientId: process.env.GITHUB_ID ?? "",
+      clientSecret: process.env.GITHUB_SECRET ?? "",
+    }),
+    // ...add more providers here
+  ],
+};
+```
+
+4. Verificamos por pantalla:
+   ![Google Provider](image-6.png)
+
+5. Ahora vamos a definir las 2 variables de entorno en el archivo `.env` y nos vamos a la [Documentación para tener las credenciales de Google](https://console.cloud.google.com/welcome/new?pli=1).
+   En la documentación nos iremos al apartado de `seleccionar un proyecto` y buscamos la opciones `PROYECTO NUEVO` ubicado en el lateral derecho.
+   ![seleccionar proyecto => PROYECTO NUEVO](image-7.png)
+
+6. Cambiamos el nombre a nuestro y le damos en crear
+   ![proyecto](image-8.png)
+
+7. Esperamos unos minutos que lo crea al proyecto y en la ventana emergente de la notificación le damos en la opción de `SELECCIONAR PROYECTO`.
+   ![SELECCIONAR PROYECTO](image-9.png)
+
+8. Una vez creado el proyecto, en el buscador => `credentials` y vamos a buscar la opcion de `+ CREAR CREDENCIALES` y seleccionamos => `ID de cliente de OAuth`
+
+![CREDENCIALES](image-10.png)
+![CLiente](image-11.png)
+
+9. Ahora nos toca configurar la `PANTALLA DE CONSENTIMIENTO`
+   ![PANTALLA DE CONSENTIMIENTO](image-12.png)
+
+- interno => es para nuestro usuario personal.
+- externo => es para cualquier usuario que tenga una cuenta de google.
+
+![alt text](image-13.png)
+
+- nombre de la app
+- selección del correo electrónico de asistencia del usuario, es decir, nuestro correo.
+- logotipo => podemos subir una imagen.
+- dominio de la app => podemos dejarlo asi por el momento.
+- dominio autorizados => es para habilitar en que dominios se puede utilizar nuestro método de autenticación. Si no se especifica ninguno cualquier dominio lo puede utilizar.
+- info del contacto => nuestro mail.
+
+![Config pantalla de consentimiento](image-14.png)
+
+- Permisos => lo dejamos por defecto a todo. Porque lo único que necesitamos es la información general del usuario de google.
+  ![permisos](image-15.png)
+
+- usuarios de prueba => le damos a la opción de guardar y continuar
+  ![usuarios de prueba](image-16.png)
+
+- Por ultimo nos da un resumen de la info y seleccionamos `Volver al panel`
+  ![resumen](image-17.png)
+
+10. Volvemos al apartado de `credenciales` => `+Crear Credenciales` => ` ID de cliente OAuth`
+    ![nuevas credenciales](image-18.png)
+
+11. Ahora nos aparece una pantalla para configurar nuestra app => en donde tenemos que configurar el tipo de app y el nombre de la key de la app
+    ![alt text](image-19.png)
+
+- Orígenes autorizados de JavaScript: esta opción la dejamos por defecto.
+
+- URI de redireccionamiento autorizados => `OBLIGATORIO` por url vamos a utilizar http://localhost:3000/api/auth/callback/:provider
+
+NOTA: A la url la vamos a modificar para nuestras necesidades => http://localhost:3000/api/auth/callback/google
+
+NOTA2: Cuando estemos en `Producción` vamos a cambiar el localhost:3000 por nuestro dominio autorizado
+
+![alt text](image-20.png)
+
+12. Por ultimo nos sale una ventana emergente con el `client id` y el ` client secret` que vamos a utilizar en nuestro `.env` y revisamos en route.ts que estén definida nuestras dos variables de entorno
+
+```js
+import NextAuth, { NextAuthOptions } from "next-auth";
+import GithubProvider from "next-auth/providers/github";
+import GoogleProvider from "next-auth/providers/google";
+
+// creamos esta const para definir nuestros providers
+// ademas los creamos de esta forma para poder utilizar la referencia (authOptions) en otros lugares
+export const authOptions: NextAuthOptions = {
+  // Configure one or more authentication providers
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    GithubProvider({
+      clientId: process.env.GITHUB_ID ?? "",
+      clientSecret: process.env.GITHUB_SECRET ?? "",
+    }),
+    // ...add more providers here
+  ],
+};
+
+// con esto lo estamos segmentando
+const handler = NextAuth(authOptions);
+
+// Esto es para el manejo de peticiones GET Y POST por handler
+// lo cual es necesario ya que NEXT ahora maneja los archivos de peticiones GET Y POST
+
+export { handler as GET, handler as POST };
+```
