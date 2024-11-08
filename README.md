@@ -673,3 +673,149 @@ const LogoutButton = () => {
 
 export default LogoutButton;
 ```
+
+## Prisma Adapter - AuthJS
+
+Una de las cosas que necesitamos es poder tener la información del usuario en nuestra base de datos, es decir, que tendríamos que tener una tabla que nos diga cuales son los usuarios que están registrado en nuestra app. Lo cual nos permitiría poder bloquear o asignar roles entre otras cuestiones.
+
+Para acceder a esa info vamos a utilizar la [Documentación Prisma Adapter](https://authjs.dev/getting-started/adapters/prisma)=>
+
+1. Ejecutamos en la terminal los siguientes comandos:
+
+`npm install @prisma/client @auth/prisma-adapter`
+`npm install prisma --save-dev`
+
+2. En el archivo donde tenemos el adaptador => auth/[...nextAuth]/route.ts tenemos que agregar una configuración
+
+```js
+  // configuración del adaptador =>
+  // adapter: PrismaAdapter que lo traemos de next-auth.
+  // Prisma Adapter: tenemos que enviarle el object de prisma.
+
+  adapter: PrismaAdapter( prisma),
+```
+
+3. Ahora tenemos que crear nuestro `schema` => para ello utilizamos el schema recomendado por la documentación, el cual lo vamos a agregar en el archivo `schema.prisma`.
+
+```js
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String  @map("user_id")
+  type               String
+  provider           String
+  providerAccountId  String  @map("provider_account_id")
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+```
+
+NOTA: falta un elemento en el model el cual lo agregamos a continuación
+
+4. Como hicimos cambios en nuestra base tenemos que hacer la migración correspondiente con el siguiente comando => `npx prisma migrate dev`. Como siempre para asegurarnos que este todo correcto ejecutamos la creación del cliente => `npx prisma generate`
+
+5. El elemento que tenemos que agregar en el model es el siguiente => como hicimos cambios en el model tenemos que que volver a migrar y generar con los comandos del apartado 4.
+
+```js
+
+model Account {
+  refresh_token_expires_in Int?
+}
+
+```
+
+6. En caso de tirar error al intentar hacer login con la cuenta de github, tenemos que cambiar el model por el siguiente y como hacemos modificaciones en nuestra base tenemos que migrar y generar. 
+
+```js
+// Auth.js
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@unique([provider, providerAccountId])
+}
+ 
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+ 
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+}
+ 
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+ 
+  @@unique([identifier, token])
+}
+
+```
+
+7. Al hacer login con cualquiera de los proveedores, podemos ver en las tablas de tablePlus  que tenemos los datos del users => 
+![data user - table plus](image-21.png)

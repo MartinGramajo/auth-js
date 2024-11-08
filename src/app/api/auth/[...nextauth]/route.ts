@@ -1,15 +1,26 @@
+import prisma from "@/lib/prisma";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 
+
+// si la migration se hizo perfectamente tendriamos que tener la opciones de user, session y todos los demas en prisma. 
+
 // creamos esta const para definir nuestros providers
 // ademas los creamos de esta forma para poder utilizar la referencia (authOptions) en otros lugares
 export const authOptions: NextAuthOptions = {
+  // configuración del adaptador =>
+  // adapter: PrismaAdapter que lo traemos de next-auth.
+  // Prisma Adapter: tenemos que enviarle el object de prisma.
+
+  adapter: PrismaAdapter(prisma),
+
   // Configure one or more authentication providers
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
     }),
     GithubProvider({
       clientId: process.env.GITHUB_ID ?? "",
