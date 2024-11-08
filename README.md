@@ -819,3 +819,17 @@ model VerificationToken {
 
 7. Al hacer login con cualquiera de los proveedores, podemos ver en las tablas de tablePlus  que tenemos los datos del users => 
 ![data user - table plus](image-21.png)
+
+## UUID en lugar CUID (generado por defecto en la tabla)
+
+Este cambio es para mantener el orden de trabajo, ya que en el model Todo estamos trabajando con ```uuid()``` lo vamos a ocupar en el model de ```Account```
+
+1. Para efectuar el cambio tenemos que tomar el uuid() del model ```TODO``` y colocarlo en el id del model ```Account y en todos donde este el cuid()```
+
+2. En ```tablePlus``` borramos el elemento creado con el cuid(). 
+
+3. Como hicimos cambios en nuestra base tenemos que hacer una migración y generarla nuevamente.
+
+4. Para probar => hacemos login y si todo esta correctamente tendríamos que ver el id generado con uuid() en nuestro tablePlus
+![uuid](image-22.png)
+
