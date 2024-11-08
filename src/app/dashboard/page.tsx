@@ -24,8 +24,8 @@ export default async function DashboardPage() {
       <WidgetItem  title="Usuario conectado Server Side">
         <div className=" flex flex-col">
           <span>{session.user?.name}</span>
-          <span>{session.user?.image}</span>
           <span>{session.user?.email}</span>
+          <span>{session.user?.image}</span>
         </div>
       </WidgetItem>
     </div>

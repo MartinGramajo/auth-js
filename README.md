@@ -545,3 +545,131 @@ const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
 ```
+
+## Logout y SignIn
+
+Trabajamos en el componente `Sidebar` en donde vamos a configurar el botón de logout
+
+```js
+<div className="px-6 -mx-6 pt-4 flex justify-between items-center border-t">
+  <button className="px-4 py-3 flex items-center space-x-4 rounded-md text-gray-600 group">
+    <CiLogout />
+    <span className="group-hover:text-gray-700">Logout</span>
+  </button>
+</div>
+```
+
+1. Vamos a crear un component adicional, pero antes en la carpeta `components` vamos a guardar por carpeta los componentes y actualizar el archivo de barril, esto con la intención de dejar un código mas limpio y ordenado. En la nueva carpeta `sidebar` vamos a crear el component adicional para trabajarlo desde el lado del cliente=>
+
+```js
+"use client";
+import { CiLogout } from "react-icons/ci";
+
+const LogoutButton = () => {
+  return (
+    <button className="px-4 py-3 flex items-center space-x-4 rounded-md text-gray-600 group">
+      <CiLogout />
+      <span className="group-hover:text-gray-700">Logout</span>
+    </button>
+  );
+};
+
+export default LogoutButton;
+```
+
+2. Tomamos los datos de la session y con esos datos vamos a crear condiciones
+   extra: le agregue un spinner de tailwind
+
+```js
+"use client";
+import { useSession } from "next-auth/react";
+import { CiLogout } from "react-icons/ci";
+
+const LogoutButton = () => {
+  const { data: session, status } = useSession();
+
+  if (status === "loading") {
+    return (
+      <div className="flex flex-row space-x-4">
+        <div
+          className="w-12 h-12 rounded-full animate-spin
+                    border-8 border-dashed border-purple-500 border-t-transparent"
+        >
+          Espere...
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <button className="px-4 py-3 flex items-center space-x-4 rounded-md text-gray-600 group">
+        <CiLogout />
+        <span className="group-hover:text-gray-700">Ingresar</span>
+      </button>
+    );
+  }
+
+  return (
+    <button className="px-4 py-3 flex items-center space-x-4 rounded-md text-gray-600 group">
+      <CiLogout />
+      <span className="group-hover:text-gray-700">Logout</span>
+    </button>
+  );
+};
+
+export default LogoutButton;
+```
+
+3. De next-auth/react vamos a importar el `signIn` y `signOut`
+
+```js
+import { useSession, signIn, signOut } from "next-auth/react";
+```
+
+4. Lo utilizamos en el button con el event onClick tanto en el login como el logout =>
+
+```js
+"use client";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { CiLogout } from "react-icons/ci";
+
+const LogoutButton = () => {
+  const { data: session, status } = useSession();
+
+  if (status === "loading") {
+    return (
+      <div className="flex flex-row space-x-4">
+        <div
+          className="w-8 h-8 rounded-full animate-spin
+                    border-8 border-dashed border-blue-800 border-t-transparent"
+        ></div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <button
+        onClick={() => signIn()}
+        className="px-4 py-3 flex items-center space-x-4 rounded-md text-gray-600 group"
+      >
+        <CiLogout />
+        <span className="group-hover:text-gray-700">Login</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => signOut()}
+      className="px-4 py-3 flex items-center space-x-4 rounded-md text-gray-600 group"
+    >
+      <CiLogout />
+      <span className="group-hover:text-gray-700">Logout</span>
+    </button>
+  );
+};
+
+export default LogoutButton;
+```
