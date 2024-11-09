@@ -50,8 +50,8 @@ const Sidebar = async () => {
   const avatarUrl = (session?.user?.image )
   ? session?.user?.image
   : 'https://res.cloudinary.com/dtbfspso5/image/upload/v1699289203/312014016_851542552876625_5393500657488779832_n_nomgxm.jpg'
-
-  // TODO: const userRole : session?.user?.name ?? 'no name';
+  // Tomamos de la session los roles 
+  const userRoles = session?.user?.roles ?? ['client'];
 
 
   return (
@@ -78,7 +78,9 @@ const Sidebar = async () => {
           <h5 className="hidden mt-4 text-xl font-semibold text-gray-600 lg:block">
             {userName}
           </h5>
-          <span className="hidden text-gray-400 lg:block">Admin</span>
+          <span className="hidden text-gray-400 lg:block  capitalize">
+            {userRoles.join(',')} 
+          </span>
         </div>
         <ul className="space-y-2 tracking-wide mt-8">
           {menuItems.map((item) => (

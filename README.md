@@ -996,3 +996,408 @@ export const authOptions: NextAuthOptions = {
       return session;
      }
 ```
+
+## Modificar Auth.js User
+
+1. Vamos a solventar los errores que nos tiraban en el traspaso de la info del token al usuario en la parte de roles y id
+
+NOTA: estos errores se deben a que no teníamos esos valores tipados.
+
+2. Para solventarlos vamos a crear un nuevo archivo para tipar esos valores en la raíz del proyecto => `nextauth.d.ts`
+
+NOTA: en caso de no funcionar el tipado probaremos con otro que nos deja la [Documentación ](https://authjs.dev/getting-started/typescript)
+
+```js
+//tsconfig.json
+...
+"include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "types.d.ts"],
+
+
+// types.d.ts
+import { DefaultSession, DefaultUser } from "next-auth";
+import { JWT } from "next-auth/jwt"
+
+
+interface IUser extends DefaultUser {
+  /**
+   * Roles del usuario
+   */
+  roles?: string[];
+  id: string;
+  /**
+   * Agregar cualquier otro campo que tu manejas
+   */
+}
+
+declare module "next-auth" {
+  interface User extends IUser {}
+
+  interface Session {
+    user?: User;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT extends IUser {}
+}
+
+```
+
+3. Agregado esos cambios, ahora tenemos el poder de agregar el rol de nuestros usuarios por pantalla => Para ello vamos a trabajar sobre `Sidebar`
+
+```js
+// Tomamos de la session los roles
+const userRoles = session?.user?.roles ?? ["client"];
+```
+
+```js
+// lo utilizamos, al ser un arreglo utilizamos el join()
+<span className="hidden text-gray-400 lg:block">{userRoles.join(",")}</span>
+```
+
+4. Lo mismo podemos hacer en el `Profile`=> esto desde el lado del cliente
+
+```js
+"use client";
+
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
+
+export default function ProfilePage() {
+  // en este caso vamos a tomar un hook useSession()
+
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    console.log("Client Side");
+  }, []);
+
+  return (
+    <div>
+      <h1>Page Profile</h1>
+      <hr />
+      <div className="flex flex-col">
+        <span>{session?.user?.name ?? "No Name"}</span>
+        <span>{session?.user?.email ?? "No Email"}</span>
+        <span>{session?.user?.image ?? "No Image "}</span>
+        <span>{session?.user?.id ?? "No UUID "}</span>
+        <span>{session?.user?.roles.join(",") ?? ["No  roles "]}</span>
+      </div>
+    </div>
+  );
+}
+```
+
+## Agregar validation en jwt en caso de que el usuario no este activo y en caso de no estar activo lo saca de la pantalla
+
+```js
+     async jwt({token, user, account, profile}){
+      // console.log({token});
+
+      // esto es para encontrar el usuario en la base de datos y que la información que vamos a enviar en la session sea la misma que tenemos en la base de datos
+      const dbUser = await prisma.user.findUnique({where:{email: token.email ?? 'no-email'}})
+
+      // validation para en caso de que el usuario no este activo
+      if( dbUser?.isActive === false ){
+        throw new Error('User is not active');
+      }
+
+
+      // con esto enviamos la info del rol y el id para la session (para visualizarla por pantalla)
+      token.roles = dbUser?.roles ?? ['no-roles'];
+      token.id = dbUser?.id ?? 'no-uuid';
+
+
+      return token;
+     },
+
+```
+
+## Credentials Provider
+
+[Documentación ](https://next-auth.js.org/providers/credentials)
+Nota => esto es limitado.
+
+Esta es la lógica que vamos a emplear para adaptarla a nuestra app =>
+
+```js
+import CredentialsProvider from "next-auth/providers/credentials";
+...
+providers: [
+  CredentialsProvider({
+    // The name to display on the sign in form (e.g. "Sign in with...")
+    name: "Credentials",
+    // `credentials` is used to generate a form on the sign in page.
+    // You can specify which fields should be submitted, by adding keys to the `credentials` object.
+    // e.g. domain, username, password, 2FA token, etc.
+    // You can pass any HTML attribute to the <input> tag through the object.
+    credentials: {
+      username: { label: "Username", type: "text", placeholder: "jsmith" },
+      password: { label: "Password", type: "password" }
+    },
+    async authorize(credentials, req) {
+      // Add logic here to look up the user from the credentials supplied
+      const user = { id: "1", name: "J Smith", email: "jsmith@example.com" }
+
+      if (user) {
+        // Any object returned will be saved in `user` property of the JWT
+        return user
+      } else {
+        // If you return null then an error will be displayed advising the user to check their details.
+        return null
+
+        // You can also Reject this callback with an Error thus the user will be sent to the error page with the error message as a query parameter
+      }
+    }
+  })
+]
+...
+```
+
+Implementaremos un formulario de login para que la validación se haga por base de datos, es decir , quiero tener un usuario en la tabla User para hacer la verificación.
+
+1. copiamos la importación de => `import CredentialsProvider from "next-auth/providers/credentials";` y lo agregamos en src/app/api/auth/[...nextauth]/route,ts
+
+```js
+import GithubProvider from "next-auth/providers/github";
+import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+```
+
+2. lo creamos en los providers y lo configuramos
+
+```js
+import prisma from "@/lib/prisma";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import GithubProvider from "next-auth/providers/github";
+import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
+
+// si la migration se hizo perfectamente tendriamos que tener la opciones de user, session y todos los demas en prisma.
+
+// creamos esta const para definir nuestros providers
+// ademas los creamos de esta forma para poder utilizar la referencia (authOptions) en otros lugares
+export const authOptions: NextAuthOptions = {
+  // configuración del adaptador =>
+  // adapter: PrismaAdapter que lo traemos de next-auth.
+  // Prisma Adapter: tenemos que enviarle el object de prisma.
+
+  adapter: PrismaAdapter(prisma),
+
+  // Configure one or more authentication providers
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    GithubProvider({
+      clientId: process.env.GITHUB_ID ?? "",
+      clientSecret: process.env.GITHUB_SECRET ?? "",
+    }),
+    // ...add more providers here
+    CredentialsProvider({
+      // nombre del provider
+      name: "Credentials",
+      // credentials => nos crea unos campos visuales en html
+      credentials: {
+        username: {
+          label: "Correo electronico",
+          type: "email",
+          placeholder: "usuario@gmail.com",
+        },
+        password: {
+          label: "Contraseña",
+          type: "password",
+          placeholder: "*******",
+        },
+      },
+      // method async el cual debe retornar un user o null
+      async authorize(credentials, req) {
+        // Agregamos la lógica para verificar el user en la base de datos y lo retornamos
+        const user = { id: "1", name: "J Smith", email: "jsmith@example.com" };
+
+        if (user) {
+          // Si retornar el user esta autenticado y procede con el ciclo.
+          return user;
+        } else {
+          // Si retorna null no esta autenticado
+          return null;
+        }
+      },
+    }),
+  ],
+
+```
+
+3. Visualmente se ve la siguiente forma:
+   ![campos generados](image-27.png)
+
+##### Para agregar la lógica y retornar un usuario que exista en nuestra base tenemos que hacer las siguientes modificaciones
+
+1. En `schema.prisma` tenemos que agregar el `password` es opcional en el caso de que nuestros user hagan login vinculando alguna cuenta de redes sociales. Al modificar la base tenemos que hacer la migración y la generación.
+
+```js
+model User {
+  id       String   @id @default(uuid())
+  name     String?
+  // campos adicionales
+  password String?
+  // el campo roles puede ser un array de strings que representan los roles del usuario
+  // por defecto, todos los usuarios tienen el rol "user"
+  roles    String[] @default(["user"])
+  isActive Boolean  @default(true)
+
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  // estas son las tablas relacionadas con user
+  accounts Account[]
+  sessions Session[]
+}
+```
+
+2. Creamos una nueva carpeta y un archivo en src/auth/actions/auth-actions.ts en donde vamos a colocar la lógica para crear el usuario
+
+```js
+import prisma from "@/lib/prisma";
+
+export const signInEmailPassword = async (email: string, password: string) => {
+  // validaciones si el email o pass no existen
+  if (!email || !password) return null;
+
+  // verificar si el usuario existe
+  const user = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+  });
+
+  // si el usuario no existe, voy a crear el user
+  if (!user) {
+  }
+};
+```
+
+3. para la creación del user => en donde el pass lo vamos encriptar con un paquete `npm i bcryptjs`
+
+```js
+const createUser = async (email: string, password: string) => {
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password, // para encriptar el password vamos a usar un paquete npm i bcryptjs
+    },
+  });
+};
+```
+
+4. Importamos el paquete pero al no estar tipado tenemos que ejecutar un comando extra => `npm i --save-dev @types/bcryptjs`
+
+```js
+import bcrypt from "bcryptjs";
+```
+
+5. Lo utilizamos con el hashSync() que encripta el password de una sola via, en otras palabras, no se puede desencriptar
+
+```js
+onst createUser = async (email: string, password: string) => {
+
+    const user = await prisma.user.create({
+        data:{
+            email: email,
+            password: bcrypt.hashSync(password),  // para encriptar el password vamos a usar un paquete npm i bcryptjs de una sola via es decir que no se puede desencritar
+            name: email.split('@')[0],
+        }
+    })
+
+    return user;
+}
+
+```
+
+6. Esto seria toda la logica final
+
+```js
+// si el usuario no existe, voy a crear el user
+import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+
+export const signInEmailPassword = async (email: string, password: string) => {
+  // validaciones si el email o pass no existen
+  if (!email || !password) return null;
+
+  // verificar si el usuario existe
+  const user = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+  });
+
+  // si el usuario no existe, voy a crear el user
+  if (!user) {
+    const dbUser = await createUser(email, password);
+    return dbUser;
+  }
+
+  // si el usuario existe, es decir, si hacen match retorno el user sino null
+  if (!bcrypt.compareSync(password, user.password ?? "")) {
+    return null;
+  }
+  return user;
+};
+
+const createUser = async (email: string, password: string) => {
+  const user = await prisma.user.create({
+    data: {
+      email: email,
+      password: bcrypt.hashSync(password), // para encriptar el password vamos a usar un paquete npm i bcryptjs de una sola via es decir que no se puede desencritar
+      name: email.split("@")[0],
+    },
+  });
+
+  return user;
+};
+```
+
+7. Lo utilizamos en el route.ts
+
+```js
+ CredentialsProvider({
+      // nombre del provider
+      name: "Credentials",
+      // credentials => nos crea unos campos visuales en html
+      credentials: {
+        email: {
+          label: "Correo electronico",
+          type: "email",
+          placeholder: "usuario@gmail.com",
+        },
+        password: {
+          label: "Contraseña",
+          type: "password",
+          placeholder: "*******",
+        },
+      },
+      // method async el cual debe retornar un user o null
+      async authorize(credentials, req) {
+        // Agregamos la lógica para verificar el user en la base de datos y lo retornamos
+        const user =  await signInEmailPassword(credentials!.email, credentials!.password)
+
+        if (user) {
+          // Si retornar el user esta autenticado y procede con el ciclo de creación del jwt y la session.
+          return user;
+        }
+          // Si retorna null no esta autenticado
+          return null;
+
+      },
+    }),
+```
+> [IMPORTANT]
+>
+> Esto no se recomienda hacer dado que la creación del usuario se debe hacer por un formulario por separado.
+
+8. Creamos nuestro usuario de prueba y verificamos 
+![usuario de prueba](image-28.png)
