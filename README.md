@@ -765,7 +765,7 @@ model Account {
 
 ```
 
-6. En caso de tirar error al intentar hacer login con la cuenta de github, tenemos que cambiar el model por el siguiente y como hacemos modificaciones en nuestra base tenemos que migrar y generar. 
+6. En caso de tirar error al intentar hacer login con la cuenta de github, tenemos que cambiar el model por el siguiente y como hacemos modificaciones en nuestra base tenemos que migrar y generar.
 
 ```js
 // Auth.js
@@ -783,12 +783,12 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
- 
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+
   @@unique([provider, providerAccountId])
 }
- 
+
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -796,7 +796,7 @@ model Session {
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
- 
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -806,30 +806,193 @@ model User {
   accounts      Account[]
   sessions      Session[]
 }
- 
+
 model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
- 
+
   @@unique([identifier, token])
 }
 
 ```
 
-7. Al hacer login con cualquiera de los proveedores, podemos ver en las tablas de tablePlus  que tenemos los datos del users => 
-![data user - table plus](image-21.png)
+7. Al hacer login con cualquiera de los proveedores, podemos ver en las tablas de tablePlus que tenemos los datos del users =>
+   ![data user - table plus](image-21.png)
 
 ## UUID en lugar CUID (generado por defecto en la tabla)
 
-Este cambio es para mantener el orden de trabajo, ya que en el model Todo estamos trabajando con ```uuid()``` lo vamos a ocupar en el model de ```Account```
+Este cambio es para mantener el orden de trabajo, ya que en el model Todo estamos trabajando con `uuid()` lo vamos a ocupar en el model de `Account`
 
-1. Para efectuar el cambio tenemos que tomar el uuid() del model ```TODO``` y colocarlo en el id del model ```Account y en todos donde este el cuid()```
+1. Para efectuar el cambio tenemos que tomar el uuid() del model `TODO` y colocarlo en el id del model `Account y en todos donde este el cuid()`
 
-2. En ```tablePlus``` borramos el elemento creado con el cuid(). 
+2. En `tablePlus` borramos el elemento creado con el cuid().
 
 3. Como hicimos cambios en nuestra base tenemos que hacer una migración y generarla nuevamente.
 
 4. Para probar => hacemos login y si todo esta correctamente tendríamos que ver el id generado con uuid() en nuestro tablePlus
-![uuid](image-22.png)
+   ![uuid](image-22.png)
 
+## Campos adicionales al usuario
+
+Ademas de la datos de name,email,image del user necesito otros datos como el rol, si esta activo o no, como cualquier otra información que necesitemos.
+
+1. Continuamos trabajando sobre el archivo `schema.prisma` en donde vamos a modificar el model `User` ya que nada nos impide agregar campos adicionales pero depende mucho de la relaciones entre tablas.
+
+```js
+model User {
+  id       String   @id @default(uuid())
+  name     String?
+  // campos adicionales
+  roles    String[] @default(["user"])
+  isActive Boolean  @default(true)
+
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  // estas son las tablas relacionadas con user
+  accounts Account[]
+  sessions Session[]
+}
+
+```
+
+2. Como hicimos cambios, aunque sea repetitivo, siempre tenemos que tirar los comandos de migración y de generación.
+
+3. Para verificar nos iremos a tablePlus y veremos las dos nuevas columnas
+   ![nuevas columnas](image-23.png)
+
+4. Una vez verificado, tenemos que decirle que esas dos nuevas columnas van a ser parte del User. Para ello nos iremos SRC/APP/AUTH/[...NEXTAUTH]/route.ts, para emplear modificaciones en este ultimo archivo.
+
+5. En el archivo router agregaremos las siguientes modificaciones
+
+```js
+export const authOptions: NextAuthOptions = {
+  // configuración del adaptador =>
+  // adapter: PrismaAdapter que lo traemos de next-auth.
+  // Prisma Adapter: tenemos que enviarle el object de prisma.
+
+  adapter: PrismaAdapter(prisma),
+
+  // Configure one or more authentication providers
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    GithubProvider({
+      clientId: process.env.GITHUB_ID ?? "",
+      clientSecret: process.env.GITHUB_SECRET ?? "",
+    }),
+    // ...add more providers here
+  ],
+
+  // modificaciones para manejar la data del user
+  session: {
+    strategy: "jwt",
+  },
+
+  callbacks: {
+    async signIn({ user, account, credentials, email, profile }) {
+      console.log(user);
+      return false; // si retornamos un false estamos negando la autenticación
+    },
+  },
+};
+```
+
+6. Al colocar en false el retorno de de los callbacks, estamos negando la autenticación y si vemos por consola el log nos retorna el user => esto lo podemos utilizar para bloquear usuarios en determinados dominios.
+   ![user](image-24.png)
+
+7. Realizada la prueba cambiamos el false por `true` y agregamos dos nuevas config `jwt` y `session`
+
+```js
+export const authOptions: NextAuthOptions = {
+  // configuración del adaptador =>
+  // adapter: PrismaAdapter que lo traemos de next-auth.
+  // Prisma Adapter: tenemos que enviarle el object de prisma.
+
+  adapter: PrismaAdapter(prisma),
+
+  // Configure one or more authentication providers
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+    GithubProvider({
+      clientId: process.env.GITHUB_ID ?? "",
+      clientSecret: process.env.GITHUB_SECRET ?? "",
+    }),
+    // ...add more providers here
+  ],
+
+  // modificaciones para manejar la data del user
+
+  // agregamos el session
+  session: {
+    strategy: "jwt",
+  },
+
+  // los callbacks
+  callbacks: {
+    async signIn({ user, account, credentials, email, profile }) {
+      console.log(user);
+
+      return true; // si retornamos un false estamos negando la autenticación
+    },
+
+    // jwt
+    // la idea es tener la info que yo quiero que se pase a la session
+    // IMPORTANTE : se debe respetar el orden primero el jwt() esto es para enviar información y después la session que va a recibir la información
+    async jwt({ token, user, account, profile }) {
+      return token;
+    },
+
+    // cuando hacemos la session
+    // lo importante de la session es enviar la session pero modificada con la información recibida por el jwt.
+    async session({ session, token, user }) {
+      return session;
+    },
+  },
+};
+```
+
+8. La idea de los campos anteriores es que cuando nos estamos autenticando con JWT es revisar que info tenemos en el token, para ello le hacemos un log al token y nos retorna lo siguiente al recargar el navegador =>
+   ![Datos del token](image-25.png)
+
+9. De esos datos el que nos interesa es el email para verificar en nuestra base de datos en la parte del token =>
+   Con ello vamos a visualizar lo siguiente por consola:
+   ![roles](image-26.png)
+
+```js
+   async jwt({token, user, account, profile}){
+      console.log({token});
+
+      // esto es para encontrar el usuario en la base de datos y que la información que vamos a enviar en la session sea la misma que tenemos en la base de datos
+      const dbUser = await prisma.user.findUnique({where:{email: token.email ?? 'no-email'}})
+
+      token.roles = dbUser?.roles ?? ['no-roles'];
+      token.id = dbUser?.id ?? ['no-uuid'];
+
+      return token;
+     },
+
+```
+
+10. Ahora vamos a trabajar sobre la session para modificarla y recibir toda la info que le envía el jwt
+
+```js
+  async session({session, token, user}){
+
+      // ahora vamos a modificar la session para tener los datos que le pasa jwt
+      // la idea es reemplazar los datos que ya tiene la session por los que se le envía por token.
+      if(session && session.user){
+        session.user.roles = token.roles;
+        session.user.id = token.id;
+      }
+
+      return session;
+     }
+```
